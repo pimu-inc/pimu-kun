@@ -17,6 +17,7 @@ export const createSheet = async ({ projectName, env }: Options) => {
           duplicateSheet: {
             sourceSheetId: TEMPLATE_SHEET_ID,
             newSheetName: projectName,
+            insertSheetIndex: 999, // 末尾に追加
           },
         },
       ],

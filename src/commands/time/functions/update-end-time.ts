@@ -32,10 +32,10 @@ export const updateEndTIme = async ({
 
   const endTimeFormatted = formatJSTTime(new Date());
 
-  // 新構造: B列=ユーザーID(0), C列=ユーザー名(1), D列=日付(2), E列=開始時刻(3), F列=終了時刻(4), G列=休憩時間(5)
+  // 新構造: B列=ユーザーID(0), C列=ユーザー名(1), D列=日付(2), E列=開始時刻(3), F列=終了時刻(4), G列=休憩開始時刻(5), H列=休憩終了時刻(6), I列=休憩時間(7), J列=稼働時間(8), K列=ステータス(9), L列=作業内容(10)
   const res = await get({
     spreadsheetId: env.TIMER_SPREADSHEET_ID,
-    range: `${projectName}!B8:J`,
+    range: `${projectName}!B8:L`,
   });
 
   const rows = res.values || [];
@@ -43,10 +43,11 @@ export const updateEndTIme = async ({
   for (let i = 0; i < rows.length; i++) {
     // ユーザーID(インデックス0)が一致し、開始時刻(インデックス3)があり、終了時刻(インデックス4)が空の場合
     if (rows?.[i]?.[0] === userId && rows?.[i]?.[3] && !rows?.[i]?.[4]) {
-      const breakData = rows?.[i]?.[5] || '';
+      const breakStartTime = rows?.[i]?.[5] || '';
+      const breakEndTime = rows?.[i]?.[6] || '';
 
-      // 休憩中の場合はエラー
-      if (breakData.includes('休憩中')) {
+      // 休憩中の場合はエラー（休憩開始時刻があり、休憩終了時刻が空の場合）
+      if (breakStartTime && !breakEndTime) {
         return {
           success: false,
           message: '休憩中です。先に休憩を終了してください。',
