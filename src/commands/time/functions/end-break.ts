@@ -1,85 +1,70 @@
 import { get } from '../../../clients/spreadsheets/values/get';
 import { update } from '../../../clients/spreadsheets/values/update';
-import { formatDurationHourMin } from '../../../functions/format-duration';
-import { getJstDate } from '../../../functions/get-jst-date';
+import { formatJSTTime } from '../../../functions/format-jst-time';
 import type { Result } from '../../../types/result';
 import { getSheets } from './get-sheets';
 
 type Options = {
   env: Env;
   userId: string;
+  projectName: string;
 };
 
-export const endBreak = async ({ userId, env }: Options): Promise<Result<{ breakDuration: string }>> => {
+export const endBreak = async ({ userId, env, projectName }: Options): Promise<Result<{ breakEndTime: string }>> => {
   const sheetList = await getSheets({ env });
-  const breakEndTimeJst = getJstDate();
 
-  // 全てのシートをループして休憩中のレコードを探す
-  for (const [sheetTitle] of Object.entries(sheetList)) {
-    const res = await get({
-      spreadsheetId: env.TIMER_SPREADSHEET_ID,
-      range: `${sheetTitle}!A:G`,
-    });
-    const rows = res.values || [];
+  if (!Object.keys(sheetList).includes(projectName)) {
+    return {
+      success: false,
+      message: `プロジェクト ${projectName}が見つかりません。`,
+    };
+  }
 
-    // ヘッダー行をスキップして検索
-    for (let i = 1; i < rows.length; i++) {
-      if (rows?.[i]?.[0] === userId && rows?.[i]?.[2] && !rows?.[i]?.[3]) {
-        // 勤務中のレコードが見つかった
-        const breakData = rows?.[i]?.[4] || '';
+  const breakEndTimeFormatted = formatJSTTime(new Date());
 
-        if (!breakData.includes('休憩中')) {
-          return {
-            success: false,
-            message: '休憩中ではありません。',
-          };
-        }
+  // 新構造: B列=ユーザーID(0), C列=ユーザー名(1), D列=日付(2), E列=開始時刻(3), F列=終了時刻(4), G列=休憩開始時刻(5), H列=休憩終了時刻(6), I列=休憩時間(7), J列=稼働時間(8), K列=ステータス(9), L列=作業内容(10)
+  const res = await get({
+    spreadsheetId: env.TIMER_SPREADSHEET_ID,
+    range: `${projectName}!B8:L`,
+  });
 
-        // 休憩開始時刻を取得: 休憩中:YYYY-MM-DD HH:MM
-        const breakStartMatch = breakData.match(/休憩中:(\d{4}-\d{2}-\d{2} \d{2}:\d{2})/);
-        if (!breakStartMatch) {
-          return {
-            success: false,
-            message: '休憩開始時間が見つかりません。',
-          };
-        }
+  const rows = res.values || [];
 
-        const breakStartTimeString = breakStartMatch[1];
-        const breakStartTimeJst = new Date(breakStartTimeString);
+  for (let i = 0; i < rows.length; i++) {
+    // ユーザーID(インデックス0)が一致し、開始時刻(インデックス3)があり、終了時刻(インデックス4)が空の場合
+    if (rows?.[i]?.[0] === userId && rows?.[i]?.[3] && !rows?.[i]?.[4]) {
+      const breakStartTime = rows?.[i]?.[5] || '';
+      const breakEndTime = rows?.[i]?.[6] || '';
 
-        // JST時刻同士で差分をミリ秒で計算
-        const breakDurationMs = breakEndTimeJst.getTime() - breakStartTimeJst.getTime();
-        const breakDurationMinutes = breakDurationMs / (1000 * 60); // 分数（小数点含む）
-
-        // hh:mm形式で表示
-        const breakDurationFormatted = formatDurationHourMin(breakDurationMinutes);
-
-        // 休憩データを更新（休憩中を削除し、休憩時間を記録）
-        const updatedBreakData = breakData.replace(/休憩中:[^,]+,?/, '').replace(/,$/, '');
-        const breakRecord = `休憩時間:${breakDurationFormatted}`;
-        const newBreakData = updatedBreakData ? `${updatedBreakData},${breakRecord}` : breakRecord;
-
-        await update({
-          spreadsheetId: env.TIMER_SPREADSHEET_ID,
-          valueInputOption: 'USER_ENTERED',
-          range: `${sheetTitle}!E${i + 1}`,
-          requestBody: {
-            values: [[newBreakData]],
-          },
-        });
-
+      // 休憩中でないかチェック（休憩開始時刻がない、または休憩終了時刻がある場合）
+      if (!breakStartTime || breakEndTime) {
         return {
-          success: true,
-          data: {
-            breakDuration: breakDurationFormatted,
-          },
+          success: false,
+          message: '休憩中ではありません。',
         };
       }
+
+      // 休憩終了時刻をH列に hh:mm 形式で書き込み（8行目からなので行番号は i + 8）
+      await update({
+        spreadsheetId: env.TIMER_SPREADSHEET_ID,
+        valueInputOption: 'USER_ENTERED',
+        range: `${projectName}!H${i + 8}`,
+        requestBody: {
+          values: [[breakEndTimeFormatted]],
+        },
+      });
+
+      return {
+        success: true,
+        data: {
+          breakEndTime: breakEndTimeFormatted,
+        },
+      };
     }
   }
 
   return {
     success: false,
-    message: '休憩中のレコードが見つかりません。',
+    message: `プロジェクト "${projectName}" で休憩中のレコードが見つかりません。`,
   };
 };

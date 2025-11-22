@@ -1,4 +1,5 @@
 import { get } from '../../../clients/spreadsheets/get';
+import { EXCLUDED_SHEET_NAMES } from '../constants';
 
 type Options = {
   env: Env;
@@ -14,8 +15,9 @@ export const getSheets = async ({ env }: Options) => {
 
   if (res.sheets) {
     for (const sheet of res.sheets) {
-      if (sheet.properties?.title) {
-        sheetsData[sheet.properties.title] = sheet.properties?.sheetId;
+      const title = sheet.properties?.title;
+      if (title && !EXCLUDED_SHEET_NAMES.includes(title)) {
+        sheetsData[title] = sheet.properties?.sheetId;
       }
     }
   }
