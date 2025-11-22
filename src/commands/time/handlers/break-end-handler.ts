@@ -6,10 +6,17 @@ type Option = {
 };
 
 export const breakEndHandler = async ({ context }: Option) => {
+  const projectName = context.var.project_name;
+
+  if (!projectName) {
+    return context.res('project_nameは必須です。');
+  }
+
   try {
     const result = await endBreak({
       env: context.env,
       userId: context.interaction.member?.user?.id ?? '',
+      projectName,
     });
 
     if (!result.success) {
