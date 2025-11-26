@@ -1,7 +1,7 @@
 {
 	"name": "uplim-kun",
 	"scripts": {
-		"deploy": "wrangler deploy",
+		"deploy": "pnpm run build && pnpm run register && wrangler deploy",
 		"cf-typegen": "wrangler types",
 		"format": "biome format --write .",
 		"ci": "biome ci .",
