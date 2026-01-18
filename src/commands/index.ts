@@ -1,9 +1,20 @@
-import { nazoHandler } from './nazo/handler';
-import { omikuziHandler } from './omikuzi/handler';
-import { timeHandler } from './time/handler';
+import type { Context } from 'hono';
+import type { SlashCommandPayload } from '../slack/types';
+import { nazoCommand } from './nazo/command';
+import { omikujiCommand } from './omikuji/command';
+import { timeCommand } from './time/command';
 
-export const handlers = {
-  time: timeHandler,
-  omikuzi: omikuziHandler,
-  nazo: nazoHandler,
+export const handleCommand = async (c: Context<{ Bindings: Env }>, payload: SlashCommandPayload): Promise<Response> => {
+  const command = payload.command;
+
+  switch (command) {
+    case '/time':
+      return await timeCommand(c, payload);
+    case '/omikuji':
+      return await omikujiCommand(c, payload);
+    case '/nazo':
+      return await nazoCommand(c, payload);
+    default:
+      return c.json({ text: '不明なコマンドです' });
+  }
 };

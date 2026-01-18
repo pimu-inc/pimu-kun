@@ -66,5 +66,17 @@
         "noConsole": "error"
       }
     }
-  }
+  },
+  "overrides": [
+    {
+      "include": ["src/register.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "off"
+          }
+        }
+      }
+    }
+  ]
 }

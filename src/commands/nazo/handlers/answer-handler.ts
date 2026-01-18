@@ -1,16 +1,14 @@
-import type { CommandContext } from 'discord-hono';
+import type { SlackResponse } from '../../../slack/types';
 import { FIRST_ANSWER_HASH, SECOND_ANSWER_HASH, getFirstFlag, getRewardUrl, getSecondFlag } from '../constants';
 import { sha256 } from '../functions/hash';
 import { katakanaToHiragana } from '../functions/normalize';
 
 type Options = {
-  context: CommandContext;
+  firstAnswer: string | null;
+  secondAnswer: string | null;
 };
 
-export const answerHandler = async ({ context }: Options) => {
-  const firstAnswer = context.var.first_answer as string | undefined;
-  const secondAnswer = context.var.second_answer as string | undefined;
-
+export const answerHandler = async ({ firstAnswer, secondAnswer }: Options): Promise<SlackResponse> => {
   const firstCorrect = firstAnswer ? (await sha256(katakanaToHiragana(firstAnswer))) === FIRST_ANSWER_HASH : false;
   const secondCorrect = secondAnswer ? (await sha256(secondAnswer)) === SECOND_ANSWER_HASH : false;
 
@@ -28,16 +26,16 @@ export const answerHandler = async ({ context }: Options) => {
       `URL: ${getRewardUrl()}`,
       '',
     ].join('\n');
-    return context.res(response);
+    return { text: response };
   }
 
   if (firstCorrect) {
-    return context.res(`1問目正解！\nフラグ: ${getFirstFlag()}`);
+    return { text: `1問目正解！\nフラグ: ${getFirstFlag()}` };
   }
 
   if (secondCorrect) {
-    return context.res(`2問目正解！\nフラグ: ${getSecondFlag()}`);
+    return { text: `2問目正解！\nフラグ: ${getSecondFlag()}` };
   }
 
-  return context.res('残念！もう一度挑戦してね');
+  return { text: '残念！もう一度挑戦してね' };
 };

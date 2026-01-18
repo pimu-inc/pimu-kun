@@ -68,7 +68,7 @@ export const updateEndTIme = async ({
         success: true,
         data: {
           projectName,
-          startTime: rows?.[i]?.[3] ?? '',
+          startTime: String(rows?.[i]?.[3] ?? ''),
           endTime: endTimeFormatted,
         },
       };

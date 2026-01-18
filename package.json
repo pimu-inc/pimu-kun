@@ -1,24 +1,22 @@
 {
 	"name": "uplim-kun",
 	"scripts": {
-		"deploy": "pnpm run build && pnpm run register && wrangler deploy",
+		"deploy": "pnpm run build && wrangler deploy",
 		"cf-typegen": "wrangler types",
 		"format": "biome format --write .",
 		"ci": "biome ci .",
-		"register": "node --env-file=.env dist/register.js",
-		"build": "tsc -p ."
+		"build": "tsc -p .",
+		"register": "node --env-file=.env dist/register.js"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "1.9.4",
 		"@cloudflare/workers-types": "4.20250311.0",
-		"discord-api-types": "0.37.119",
-		"googleapis": "146.0.0",
-		"ts-node": "10.9.2",
+		"@types/node": "22.10.10",
 		"typescript": "5.7.3",
 		"wrangler": "3.114.1"
 	},
 	"dependencies": {
 		"cloudflare-workers-and-google-oauth": "2.0.0",
-		"discord-hono": "0.16.3"
+		"hono": "4.6.20"
 	}
 }

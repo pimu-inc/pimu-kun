@@ -1,31 +1,36 @@
-import type { CommandContext } from 'discord-hono';
+import type { SlackResponse } from '../../../slack/types';
 import { appendStartTime } from '../functions/append-start-time';
 
-type Option = {
-  context: CommandContext;
+type Options = {
+  projectName: string;
+  memo: string;
+  userId: string;
+  userName: string;
+  env: Env;
 };
 
-export const startHandler = async ({ context }: Option) => {
-  const projectName = context.var.project_name;
-  const memo = context.var.memo;
+export const startHandler = async ({ projectName, memo, userId, userName, env }: Options): Promise<SlackResponse> => {
+  if (!projectName) {
+    return { text: 'プロジェクトを選択してください。' };
+  }
 
   try {
     const result = await appendStartTime({
       projectName,
       memo,
-      userId: context.interaction.member?.user?.id ?? '',
-      userName: context.interaction.member?.user?.username ?? '',
-      env: context.env,
+      userId,
+      userName,
+      env,
     });
 
     if (!result.success) {
-      return context.res(result.message);
+      return { text: result.message };
     }
 
-    return context.res(
-      `${context.interaction.member?.user?.global_name}がプロジェクト "${projectName}" の勤務を開始しました。\n開始時間: ${result.data.startTime}\nメモ：${memo}`
-    );
-  } catch (e) {
-    return context.res('エラーが発生しました');
+    return {
+      text: `${userName}がプロジェクト "${projectName}" の勤務を開始しました。\n開始時間: ${result.data.startTime}\nメモ：${memo}`,
+    };
+  } catch {
+    return { text: 'エラーが発生しました' };
   }
 };

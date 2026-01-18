@@ -1,32 +1,33 @@
-import type { CommandContext } from 'discord-hono';
+import type { SlackResponse } from '../../../slack/types';
 import { endBreak } from '../functions/end-break';
 
-type Option = {
-  context: CommandContext;
+type Options = {
+  projectName: string;
+  userId: string;
+  userName: string;
+  env: Env;
 };
 
-export const breakEndHandler = async ({ context }: Option) => {
-  const projectName = context.var.project_name;
-
+export const breakEndHandler = async ({ projectName, userId, userName, env }: Options): Promise<SlackResponse> => {
   if (!projectName) {
-    return context.res('project_nameは必須です。');
+    return { text: 'プロジェクトを選択してください。' };
   }
 
   try {
     const result = await endBreak({
-      env: context.env,
-      userId: context.interaction.member?.user?.id ?? '',
+      env,
+      userId,
       projectName,
     });
 
     if (!result.success) {
-      return context.res(result.message);
+      return { text: result.message };
     }
 
-    return context.res(
-      `${context.interaction.member?.user?.global_name}が休憩を終了しました。\n休憩終了時刻: ${result.data.breakEndTime}`
-    );
+    return {
+      text: `${userName}が休憩を終了しました。\n休憩終了時刻: ${result.data.breakEndTime}`,
+    };
   } catch {
-    return context.res('エラーが発生しました');
+    return { text: 'エラーが発生しました' };
   }
 };

@@ -1,13 +1,8 @@
-import type { sheets_v4 } from 'googleapis';
+import type { AppendValuesResponse, ValuesAppendParams } from '../../../types/google-sheets';
 import { fetcher } from '../../fetcher';
 
-export const append = async ({
-  spreadsheetId,
-  range,
-  requestBody,
-  valueInputOption,
-}: sheets_v4.Params$Resource$Spreadsheets$Values$Append) => {
-  return fetcher<sheets_v4.Schema$AppendValuesResponse>(
+export const append = async ({ spreadsheetId, range, requestBody, valueInputOption }: ValuesAppendParams) => {
+  return fetcher<AppendValuesResponse>(
     `/spreadsheets/${spreadsheetId}/values/${range}:append?valueInputOption=${valueInputOption}`,
     {
       method: 'POST',

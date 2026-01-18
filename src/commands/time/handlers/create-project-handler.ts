@@ -1,21 +1,20 @@
-import type { CommandContext } from 'discord-hono';
+import type { SlackResponse } from '../../../slack/types';
 import { createSheet } from '../functions/create-sheet';
 
-type Option = {
-  context: CommandContext;
+type Options = {
+  projectName: string;
+  env: Env;
 };
 
-export const createProjectHandler = async ({ context }: Option) => {
-  const projectName = context.var.project_name;
-
+export const createProjectHandler = async ({ projectName, env }: Options): Promise<SlackResponse> => {
   if (!projectName) {
-    return context.res('project_nameは必須です。');
+    return { text: '新規プロジェクト名を入力してください。' };
   }
 
   try {
-    await createSheet({ env: context.env, projectName });
-    return context.res(`プロジェクト "${projectName}" を作成しました。`);
-  } catch (e) {
-    return context.res('エラーが発生しました');
+    await createSheet({ env, projectName });
+    return { text: `プロジェクト "${projectName}" を作成しました。` };
+  } catch {
+    return { text: 'エラーが発生しました' };
   }
 };

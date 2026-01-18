@@ -2,7 +2,7 @@
   "compilerOptions": {
     "module": "CommonJS",
     "target": "ESNext",
-    "types": ["@cloudflare/workers-types"],
+    "types": ["@cloudflare/workers-types", "node"],
     "strict": true,
     "strictNullChecks": true,
     "resolveJsonModule": true,
@@ -19,6 +19,6 @@
     "rootDir": "./src",
     "outDir": "./dist"
   },
-  "include": ["worker-configuration.d.ts", "src/**/*.ts"],
+  "include": ["worker-configuration.d.ts", "service-account-key.d.ts", "src/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }

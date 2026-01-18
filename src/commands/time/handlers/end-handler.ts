@@ -1,32 +1,33 @@
-import type { CommandContext } from 'discord-hono';
+import type { SlackResponse } from '../../../slack/types';
 import { updateEndTIme } from '../functions/update-end-time';
 
-type Option = {
-  context: CommandContext;
+type Options = {
+  projectName: string;
+  userId: string;
+  userName: string;
+  env: Env;
 };
 
-export const endHandler = async ({ context }: Option) => {
-  const projectName = context.var.project_name;
-
+export const endHandler = async ({ projectName, userId, userName, env }: Options): Promise<SlackResponse> => {
   if (!projectName) {
-    return context.res('project_nameは必須です。');
+    return { text: 'プロジェクトを選択してください。' };
   }
 
   try {
     const result = await updateEndTIme({
-      env: context.env,
-      userId: context.interaction.member?.user?.id ?? '',
+      env,
+      userId,
       projectName,
     });
 
     if (!result.success) {
-      return context.res(result.message);
+      return { text: result.message };
     }
 
-    return context.res(
-      `${context.interaction.member?.user?.global_name}がプロジェクト "${result.data.projectName}" の勤務を終了しました。\n開始時間: ${result.data.startTime}\n終了時間: ${result.data.endTime}`
-    );
+    return {
+      text: `${userName}がプロジェクト "${result.data.projectName}" の勤務を終了しました。\n開始時間: ${result.data.startTime}\n終了時間: ${result.data.endTime}`,
+    };
   } catch {
-    return context.res('エラーが発生しました');
+    return { text: 'エラーが発生しました' };
   }
 };
