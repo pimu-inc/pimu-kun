@@ -18,5 +18,8 @@
 	"dependencies": {
 		"cloudflare-workers-and-google-oauth": "2.0.0",
 		"hono": "4.6.20"
+	},
+	"pnpm": {
+		"onlyBuiltDependencies": ["@biomejs/biome", "esbuild", "workerd"]
 	}
 }
