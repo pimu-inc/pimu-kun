@@ -1,6 +1,6 @@
 import type { Context } from 'hono';
 import { postMessage } from '../../slack/api';
-import type { SelectValue, SlackResponse, TextValue, ViewSubmissionPayload } from '../../slack/types';
+import type { SlackResponse, StateValues, ViewSubmissionPayload } from '../../slack/types';
 import { breakEndHandler } from './handlers/break-end-handler';
 import { breakStartHandler } from './handlers/break-start-handler';
 import { createProjectHandler } from './handlers/create-project-handler';
@@ -8,11 +8,7 @@ import { endHandler } from './handlers/end-handler';
 import { listHandler } from './handlers/list-handler';
 import { startHandler } from './handlers/start-handler';
 
-const getSelectValue = (
-  values: Record<string, Record<string, SelectValue | TextValue>>,
-  blockId: string,
-  actionId: string
-): string | null => {
+const getSelectValue = (values: StateValues, blockId: string, actionId: string): string | null => {
   const block = values[blockId];
   if (!block) return null;
   const action = block[actionId];
@@ -20,11 +16,7 @@ const getSelectValue = (
   return action.selected_option?.value ?? null;
 };
 
-const getTextValue = (
-  values: Record<string, Record<string, SelectValue | TextValue>>,
-  blockId: string,
-  actionId: string
-): string | null => {
+const getTextValue = (values: StateValues, blockId: string, actionId: string): string | null => {
   const block = values[blockId];
   if (!block) return null;
   const action = block[actionId];

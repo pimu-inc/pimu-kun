@@ -1,0 +1,17 @@
+name = "uplim-kun"
+main = "src/index.ts"
+compatibility_date = "2025-03-11"
+compatibility_flags = ["nodejs_compat"]
+keep_vars = true
+
+[observability]
+enabled = true
+
+[triggers]
+crons = ["* * * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "pimu-kun-db"
+database_id = "39e37fdc-2f09-4579-827b-e55ceadd2020"
+migrations_dir = "migrations"

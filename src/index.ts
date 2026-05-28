@@ -1,7 +1,8 @@
 import { Hono } from 'hono';
 import { handleCommand } from './commands';
+import { runDueReminders } from './commands/remind/functions/run-due-reminders';
 import { handleInteraction } from './interactions';
-import type { SlashCommandPayload, ViewSubmissionPayload } from './slack/types';
+import type { InteractionPayload, SlashCommandPayload } from './slack/types';
 import { verifySlackRequest } from './slack/verify';
 
 const app = new Hono<{ Bindings: Env }>();
@@ -44,8 +45,13 @@ app.post('/slack/interactions', async (c) => {
     return c.text('Missing payload', 400);
   }
 
-  const payload = JSON.parse(payloadStr) as ViewSubmissionPayload;
+  const payload = JSON.parse(payloadStr) as InteractionPayload;
   return await handleInteraction(c, payload);
 });
 
-export default app;
+export default {
+  fetch: app.fetch,
+  scheduled: async (_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> => {
+    ctx.waitUntil(runDueReminders(env));
+  },
+};

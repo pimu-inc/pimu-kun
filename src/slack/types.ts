@@ -48,12 +48,63 @@ export type PlainTextInputElement = {
   initial_value?: string;
 };
 
+export type TimepickerElement = {
+  type: 'timepicker';
+  action_id: string;
+  initial_time?: string; // 'HH:mm'
+  placeholder?: PlainTextElement;
+};
+
+export type DatepickerElement = {
+  type: 'datepicker';
+  action_id: string;
+  initial_date?: string; // 'YYYY-MM-DD'
+  placeholder?: PlainTextElement;
+};
+
+export type ConversationsSelectElement = {
+  type: 'conversations_select';
+  action_id: string;
+  default_to_current_conversation?: boolean;
+  initial_conversation?: string;
+  placeholder?: PlainTextElement;
+};
+
+export type MultiUsersSelectElement = {
+  type: 'multi_users_select';
+  action_id: string;
+  placeholder?: PlainTextElement;
+};
+
+export type ButtonElement = {
+  type: 'button';
+  action_id: string;
+  text: PlainTextElement;
+  value?: string;
+  style?: 'primary' | 'danger';
+};
+
+export type InputElement =
+  | StaticSelectElement
+  | PlainTextInputElement
+  | TimepickerElement
+  | DatepickerElement
+  | ConversationsSelectElement
+  | MultiUsersSelectElement;
+
 export type InputBlock = {
   type: 'input';
   block_id: string;
   label: PlainTextElement;
-  element: StaticSelectElement | PlainTextInputElement;
+  element: InputElement;
   optional?: boolean;
+  dispatch_action?: boolean;
+};
+
+export type ActionsBlock = {
+  type: 'actions';
+  block_id: string;
+  elements: Array<StaticSelectElement | ButtonElement>;
 };
 
 export type HeaderBlock = {
@@ -64,13 +115,19 @@ export type HeaderBlock = {
 export type SectionBlock = {
   type: 'section';
   text: TextElement;
+  accessory?: ButtonElement;
+};
+
+export type ContextBlock = {
+  type: 'context';
+  elements: TextElement[];
 };
 
 export type DividerBlock = {
   type: 'divider';
 };
 
-export type Block = InputBlock | HeaderBlock | SectionBlock | DividerBlock;
+export type Block = InputBlock | ActionsBlock | HeaderBlock | SectionBlock | ContextBlock | DividerBlock;
 
 export type ModalView = {
   type: 'modal';
@@ -92,7 +149,7 @@ export type ViewSubmissionPayload = {
     callback_id: string;
     private_metadata: string;
     state: {
-      values: Record<string, Record<string, SelectValue | TextValue>>;
+      values: StateValues;
     };
   };
   response_urls: Array<{
@@ -112,6 +169,59 @@ export type TextValue = {
   type: 'plain_text_input';
   value: string | null;
 };
+
+export type TimeValue = {
+  type: 'timepicker';
+  selected_time: string | null;
+};
+
+export type DateValue = {
+  type: 'datepicker';
+  selected_date: string | null;
+};
+
+export type ConversationValue = {
+  type: 'conversations_select';
+  selected_conversation: string | null;
+};
+
+export type UsersValue = {
+  type: 'multi_users_select';
+  selected_users: string[];
+};
+
+export type StateValue = SelectValue | TextValue | TimeValue | DateValue | ConversationValue | UsersValue;
+
+export type StateValues = Record<string, Record<string, StateValue>>;
+
+// block_actions payload（Modal内の操作で発火）
+export type BlockAction = {
+  type: string;
+  action_id: string;
+  block_id: string;
+  value?: string;
+  selected_option?: { text: PlainTextElement; value: string } | null;
+  selected_time?: string | null;
+  selected_date?: string | null;
+  selected_conversation?: string | null;
+};
+
+export type BlockActionsPayload = {
+  type: 'block_actions';
+  trigger_id: string;
+  user: { id: string; username: string; name: string };
+  view: {
+    id: string;
+    callback_id: string;
+    private_metadata: string;
+    state: {
+      values: StateValues;
+    };
+  };
+  actions: BlockAction[];
+};
+
+export type InteractionPayload = ViewSubmissionPayload | BlockActionsPayload;
 
 // Slack レスポンス
 export type SlackResponse = {

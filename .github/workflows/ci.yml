@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-pnpm
+
+      # google-sheets.ts がモジュールレベルで import するため、typecheck に必須
+      - name: Restore service account key
+        run: printf '%s' "$GOOGLE_SERVICE_ACCOUNT_KEY" > service-account-key.json
+        env:
+          GOOGLE_SERVICE_ACCOUNT_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
+
+      - name: Lint & format check
+        run: pnpm run ci
+
+      - name: Build (typecheck)
+        run: pnpm run build
