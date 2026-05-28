@@ -1,5 +1,5 @@
 {
-	"name": "uplim-kun",
+	"name": "pimu-kun",
 	"scripts": {
 		"deploy": "pnpm run build && wrangler deploy",
 		"cf-typegen": "wrangler types",
