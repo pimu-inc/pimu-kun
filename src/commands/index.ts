@@ -15,7 +15,7 @@ export const handleCommand = async (c: Context<{ Bindings: Env }>, payload: Slas
       return await omikujiCommand(c, payload);
     case '/nazo':
       return await nazoCommand(c, payload);
-    case '/remind':
+    case '/reminder':
       return await remindCommand(c, payload);
     default:
       return c.json({ text: '不明なコマンドです' });
