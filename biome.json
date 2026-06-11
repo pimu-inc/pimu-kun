@@ -42,7 +42,7 @@
       "lineWidth": 120,
       "quoteProperties": "asNeeded"
     },
-    "globals": ["Env", "D1Database", "ScheduledController", "ExecutionContext"]
+    "globals": ["Env", "D1Database", "ScheduledController", "ExecutionContext", "Ai"]
   },
   "linter": {
     "enabled": true,
