@@ -124,7 +124,7 @@ export const omikujiCommand = async (
         type: 'header',
         text: {
           type: 'plain_text',
-          text: `${fortune.emoji} <@${payload.user_id}>さんの運勢: ${fortune.result} ${fortune.emoji}`,
+          text: `${fortune.emoji} 今日の運勢: ${fortune.result} ${fortune.emoji}`,
           emoji: true,
         },
       },
@@ -132,7 +132,7 @@ export const omikujiCommand = async (
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: `${fortune.comment ?? ''}${rarityLine}${fridayBonus}`,
+          text: `<@${payload.user_id}>さんの運勢\n${fortune.comment ?? ''}${rarityLine}${fridayBonus}`,
         },
       },
       {
