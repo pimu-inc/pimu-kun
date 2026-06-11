@@ -5,4 +5,5 @@ interface Env {
   SLACK_SIGNING_SECRET: string;
   TIMER_SPREADSHEET_ID: string;
   DB: D1Database;
+  AI: Ai;
 }

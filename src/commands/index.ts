@@ -4,6 +4,7 @@ import { nazoCommand } from './nazo/command';
 import { omikujiCommand } from './omikuji/command';
 import { remindCommand } from './remind/command';
 import { timeCommand } from './time/command';
+import { uranaiCommand } from './uranai/command';
 
 export const handleCommand = async (c: Context<{ Bindings: Env }>, payload: SlashCommandPayload): Promise<Response> => {
   const command = payload.command;
@@ -17,6 +18,8 @@ export const handleCommand = async (c: Context<{ Bindings: Env }>, payload: Slas
       return await nazoCommand(c, payload);
     case '/reminder':
       return await remindCommand(c, payload);
+    case '/uranai':
+      return await uranaiCommand(c, payload);
     default:
       return c.json({ text: '不明なコマンドです' });
   }

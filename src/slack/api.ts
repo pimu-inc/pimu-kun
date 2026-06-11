@@ -42,6 +42,7 @@ export const updateModal = async (token: string, viewId: string, view: ModalView
 type PostMessageResponse = {
   ok: boolean;
   error?: string;
+  ts?: string;
 };
 
 export const postMessage = async (
@@ -57,6 +58,28 @@ export const postMessage = async (
     },
     body: JSON.stringify({
       channel,
+      ...message,
+    }),
+  });
+
+  return (await response.json()) as PostMessageResponse;
+};
+
+export const updateMessage = async (
+  token: string,
+  channel: string,
+  ts: string,
+  message: SlackResponse
+): Promise<PostMessageResponse> => {
+  const response = await fetch(`${SLACK_API_BASE}/chat.update`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      channel,
+      ts,
       ...message,
     }),
   });

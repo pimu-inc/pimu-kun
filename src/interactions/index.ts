@@ -4,6 +4,9 @@ import { handleReminderBlockActions } from '../commands/remind/block-actions';
 import { handleReminderSubmission } from '../commands/remind/interaction';
 import { ACTION_DELETE, ACTION_MODE } from '../commands/remind/modal';
 import { handleTimeInteraction } from '../commands/time/interaction';
+import { handleUranaiBlockActions } from '../commands/uranai/block-actions';
+import { handleUranaiInteraction } from '../commands/uranai/interaction';
+import { ACTION_OPEN_REGISTER, CALLBACK_REGISTER, CALLBACK_SELECT } from '../commands/uranai/modal';
 import type { InteractionPayload } from '../slack/types';
 
 export const handleInteraction = async (
@@ -14,6 +17,9 @@ export const handleInteraction = async (
     const actionId = payload.actions[0]?.action_id;
     if (actionId === ACTION_MODE || actionId === ACTION_DELETE) {
       return await handleReminderBlockActions(c, payload);
+    }
+    if (actionId === ACTION_OPEN_REGISTER) {
+      return await handleUranaiBlockActions(c, payload);
     }
     return c.body(null, 200);
   }
@@ -31,6 +37,9 @@ export const handleInteraction = async (
       return await handleNazoInteraction(c, payload);
     case 'reminder_create':
       return await handleReminderSubmission(c, payload);
+    case CALLBACK_REGISTER:
+    case CALLBACK_SELECT:
+      return await handleUranaiInteraction(c, payload);
     default:
       return c.text('Unknown callback_id', 400);
   }
