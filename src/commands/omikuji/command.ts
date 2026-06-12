@@ -31,14 +31,24 @@ const RARITY_BANNER: Record<Rarity, string | null> = {
   UR: '🌈✨⭐⭐⭐⭐ *UR ・ ULTRA RARE* ⭐⭐⭐⭐✨🌈',
 };
 
-// 演出を出す(=「上書き」アニメーションを走らせる)レア度
-const PRODUCTION_RARITY: Rarity[] = ['SR', 'SSR', 'UR'];
-
-// 抽選中→開封のあいだに挟むチラ見せ演出
-const TEASER: Record<'SR' | 'SSR' | 'UR', string> = {
-  SR: '🎰 おや…？なんだか光っている気がする…',
-  SSR: '🎆 ピカーッ…!!\nこれは…ただ事ではない予感…!',
-  UR: '🌈 ＿人人人人人人人人＿\n＞ 虹色の光が…!! ＜\n￣Y^Y^Y^Y^Y^Y^Y￣',
+// 抽選中→開封のあいだに挟むチラ見せ演出(レア度ごとに複数パターンからランダム)
+const TEASER: Record<Rarity, string[]> = {
+  N: [
+    '📜 カサカサ…　紙を開いています…',
+    '🎋 ふむふむ…　今日の運勢は……',
+    '✨ キラッ…!?\n…と思ったら手元のスマホの反射でした。結果は…',
+    '🥁 ドゥルルルルル……',
+    '🔮 水晶玉に何かが映ってきた…これは…まさか…!?',
+    '🎰 おっ…？回転が…止まりそうで止まらない……!',
+  ],
+  R: [
+    '⭐ ん…？ほんのり光っている…？',
+    '🎰 カタッ…　いつもと違う音がした気がする…',
+    '📜 この紙、少し手触りが違う……？',
+  ],
+  SR: ['🎰 おや…？なんだか光っている気がする…'],
+  SSR: ['🎆 ピカーッ…!!\nこれは…ただ事ではない予感…!'],
+  UR: ['🌈 ＿人人人人人人人人＿\n＞ 虹色の光が…!! ＜\n￣Y^Y^Y^Y^Y^Y^Y￣'],
 };
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
@@ -168,10 +178,10 @@ const buildRevealBlocks = (
 };
 
 // ──────────────────────────────────────────────
-// レア演出: 「ガラガラ…」→「チラ見せ」→「開封」を response_url で上書きしていく
+// 演出: 「ガラガラ…」→「チラ見せ」→「開封」を response_url で上書きしていく
 // ──────────────────────────────────────────────
-const runRareReveal = async (responseUrl: string, fortune: OmikuzaEntry, revealBlocks: Block[]): Promise<void> => {
-  const teaser = TEASER[fortune.rarity as 'SR' | 'SSR' | 'UR'];
+const runReveal = async (responseUrl: string, fortune: OmikuzaEntry, revealBlocks: Block[]): Promise<void> => {
+  const teaser = pick(TEASER[fortune.rarity]);
 
   await sleep(1500);
   await respondToUrl(responseUrl, {
@@ -218,9 +228,9 @@ export const omikujiCommand = async (
 
   const revealBlocks = buildRevealBlocks(fortune, payload, lucky, fridayBonus);
 
-  // レアが出たら「引いてる最中」を先に出し、裏で開封演出に上書きする
-  if (PRODUCTION_RARITY.includes(fortune.rarity) && payload.response_url) {
-    c.executionCtx.waitUntil(runRareReveal(payload.response_url, fortune, revealBlocks));
+  // 「引いてる最中」を先に出し、裏で開封演出に上書きする(response_urlがない場合のみ即時表示)
+  if (payload.response_url) {
+    c.executionCtx.waitUntil(runReveal(payload.response_url, fortune, revealBlocks));
     return c.json({
       response_type: 'in_channel',
       text: `🎰 <@${payload.user_id}> がおみくじを引いた…`,
