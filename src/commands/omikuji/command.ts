@@ -49,6 +49,16 @@ const TEASER: Record<Rarity, string[]> = {
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
+// 演出の待ち時間(ガラガラは固定、チラ見せはレア度が高いほど長く焦らす)
+const RATTLE_MS = 2500;
+const TEASER_MS: Record<Rarity, number> = {
+  N: 2000,
+  R: 2500,
+  SR: 2500,
+  SSR: 3000,
+  UR: 3000,
+};
+
 // ──────────────────────────────────────────────
 // ラッキー要素(組み合わせで実質無限のバリエーション)
 // ──────────────────────────────────────────────
@@ -179,7 +189,7 @@ const buildRevealBlocks = (
 const runReveal = async (responseUrl: string, fortune: OmikuzaEntry, revealBlocks: Block[]): Promise<void> => {
   const teaser = pick(TEASER[fortune.rarity]);
 
-  await sleep(1500);
+  await sleep(RATTLE_MS);
   await respondToUrl(responseUrl, {
     response_type: 'in_channel',
     replace_original: true,
@@ -187,7 +197,7 @@ const runReveal = async (responseUrl: string, fortune: OmikuzaEntry, revealBlock
     blocks: [{ type: 'section', text: { type: 'mrkdwn', text: teaser } }],
   });
 
-  await sleep(1500);
+  await sleep(TEASER_MS[fortune.rarity]);
   await respondToUrl(responseUrl, {
     response_type: 'in_channel',
     replace_original: true,
