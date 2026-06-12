@@ -114,7 +114,8 @@ export type HeaderBlock = {
 
 export type SectionBlock = {
   type: 'section';
-  text: TextElement;
+  text?: TextElement;
+  fields?: TextElement[];
   accessory?: ButtonElement;
 };
 
@@ -228,6 +229,7 @@ export type SlackResponse = {
   response_type?: 'in_channel' | 'ephemeral';
   text?: string;
   blocks?: Block[];
+  replace_original?: boolean;
 };
 
 // view_submission のレスポンス（Modal を閉じる or エラー表示）

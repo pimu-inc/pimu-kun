@@ -1,6 +1,7 @@
 import type { Context } from 'hono';
-import type { SlashCommandPayload } from '../../slack/types';
-import { OMIKUZI_LIST, type OmikuzaRarity as Rarity } from './constant';
+import { respondToUrl } from '../../slack/api';
+import type { Block, SlashCommandPayload } from '../../slack/types';
+import { OMIKUZI_LIST, type OmikuzaEntry, type OmikuzaRarity as Rarity } from './constant';
 
 // ──────────────────────────────────────────────
 // レアリティ排出率
@@ -13,13 +14,34 @@ const RARITY_WEIGHT: Record<Rarity, number> = {
   UR: 10, //  1%
 };
 
-const RARITY_LABEL: Record<Rarity, string> = {
-  N: '',
-  R: '★ R',
-  SR: '★★ SR',
-  SSR: '★★★ SSR',
-  UR: '🌈 ★★★★ UR 🌈',
+const RARITY_RATE: Record<Rarity, string> = {
+  N: '60%',
+  R: '25%',
+  SR: '10%',
+  SSR: '4%',
+  UR: '1%',
 };
+
+// レア度バナー(N は控えめ、R 以上は派手に強調)
+const RARITY_BANNER: Record<Rarity, string | null> = {
+  N: null,
+  R: '⭐ *R ・ RARE* ⭐',
+  SR: '⭐⭐ *SR ・ SUPER RARE* ⭐⭐',
+  SSR: '🎆⭐⭐⭐ *SSR ・ SUPER SPECIAL RARE* ⭐⭐⭐🎆',
+  UR: '🌈✨⭐⭐⭐⭐ *UR ・ ULTRA RARE* ⭐⭐⭐⭐✨🌈',
+};
+
+// 演出を出す(=「上書き」アニメーションを走らせる)レア度
+const PRODUCTION_RARITY: Rarity[] = ['SR', 'SSR', 'UR'];
+
+// 抽選中→開封のあいだに挟むチラ見せ演出
+const TEASER: Record<'SR' | 'SSR' | 'UR', string> = {
+  SR: '🎰 おや…？なんだか光っている気がする…',
+  SSR: '🎆 ピカーッ…!!\nこれは…ただ事ではない予感…!',
+  UR: '🌈 ＿人人人人人人人人＿\n＞ 虹色の光が…!! ＜\n￣Y^Y^Y^Y^Y^Y^Y￣',
+};
+
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 // ──────────────────────────────────────────────
 // ラッキー要素(組み合わせで実質無限のバリエーション)
@@ -92,6 +114,83 @@ const pickFortune = () => {
 const pick = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)] as T;
 
 // ──────────────────────────────────────────────
+// 開封結果(最終的に表示される)ブロックを組み立てる
+// ──────────────────────────────────────────────
+type Lucky = { item: string; color: string; action: string; number: number };
+
+const buildRevealBlocks = (
+  fortune: OmikuzaEntry,
+  payload: SlashCommandPayload,
+  lucky: Lucky,
+  fridayBonus: string
+): Block[] => {
+  const blocks: Block[] = [
+    {
+      type: 'header',
+      text: {
+        type: 'plain_text',
+        text: `${fortune.emoji} 今日の運勢: ${fortune.result} ${fortune.emoji}`,
+        emoji: true,
+      },
+    },
+  ];
+
+  // レア度を主役級に強調(R 以上はバナー+排出率を独立したブロックで表示)
+  const banner = RARITY_BANNER[fortune.rarity];
+  if (banner) {
+    blocks.push({ type: 'divider' });
+    blocks.push({
+      type: 'section',
+      text: { type: 'mrkdwn', text: `${banner}\n\`排出率 ${RARITY_RATE[fortune.rarity]}\`` },
+    });
+    blocks.push({ type: 'divider' });
+  }
+
+  blocks.push({
+    type: 'section',
+    text: {
+      type: 'mrkdwn',
+      text: `<@${payload.user_id}>さんの運勢\n${fortune.comment ?? ''}${fridayBonus}`,
+    },
+  });
+
+  blocks.push({
+    type: 'section',
+    fields: [
+      { type: 'mrkdwn', text: `*🎁 ラッキーアイテム*\n${lucky.item}` },
+      { type: 'mrkdwn', text: `*🎨 ラッキーカラー*\n${lucky.color}` },
+      { type: 'mrkdwn', text: `*🔢 ラッキーナンバー*\n${lucky.number}` },
+      { type: 'mrkdwn', text: `*✅ 開運アクション*\n${lucky.action}` },
+    ],
+  });
+
+  return blocks;
+};
+
+// ──────────────────────────────────────────────
+// レア演出: 「ガラガラ…」→「チラ見せ」→「開封」を response_url で上書きしていく
+// ──────────────────────────────────────────────
+const runRareReveal = async (responseUrl: string, fortune: OmikuzaEntry, revealBlocks: Block[]): Promise<void> => {
+  const teaser = TEASER[fortune.rarity as 'SR' | 'SSR' | 'UR'];
+
+  await sleep(1500);
+  await respondToUrl(responseUrl, {
+    response_type: 'in_channel',
+    replace_original: true,
+    text: teaser,
+    blocks: [{ type: 'section', text: { type: 'mrkdwn', text: teaser } }],
+  });
+
+  await sleep(1500);
+  await respondToUrl(responseUrl, {
+    response_type: 'in_channel',
+    replace_original: true,
+    text: `今日の運勢: ${fortune.result}`,
+    blocks: revealBlocks,
+  });
+};
+
+// ──────────────────────────────────────────────
 // コマンド本体
 // ──────────────────────────────────────────────
 export const omikujiCommand = async (
@@ -106,44 +205,40 @@ export const omikujiCommand = async (
     });
   }
 
-  const luckyItem = pick(LUCKY_ITEMS);
-  const luckyColor = pick(LUCKY_COLORS);
-  const luckyAction = pick(LUCKY_ACTIONS);
-  const luckyNumber = Math.floor(Math.random() * 99) + 1;
-
-  const rarityLine = fortune.rarity !== 'N' ? `\n*${RARITY_LABEL[fortune.rarity]}*` : '';
+  const lucky: Lucky = {
+    item: pick(LUCKY_ITEMS),
+    color: pick(LUCKY_COLORS),
+    action: pick(LUCKY_ACTIONS),
+    number: Math.floor(Math.random() * 99) + 1,
+  };
 
   // 金曜日はちょっとだけ演出を盛る(JST基準)
   const day = new Date(Date.now() + 9 * 60 * 60 * 1000).getUTCDay();
   const fridayBonus = day === 5 ? '\n🎉 _金曜ボーナス:今日の運勢効果は週末まで持続します!_' : '';
 
+  const revealBlocks = buildRevealBlocks(fortune, payload, lucky, fridayBonus);
+
+  // レアが出たら「引いてる最中」を先に出し、裏で開封演出に上書きする
+  if (PRODUCTION_RARITY.includes(fortune.rarity) && payload.response_url) {
+    c.executionCtx.waitUntil(runRareReveal(payload.response_url, fortune, revealBlocks));
+    return c.json({
+      response_type: 'in_channel',
+      text: `🎰 <@${payload.user_id}> がおみくじを引いた…`,
+      blocks: [
+        {
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: `🎰 <@${payload.user_id}> がおみくじを引いた…\n\n*ガラガラ……　ガラガラ……*`,
+          },
+        },
+      ],
+    });
+  }
+
   return c.json({
     response_type: 'in_channel',
-    blocks: [
-      {
-        type: 'header',
-        text: {
-          type: 'plain_text',
-          text: `${fortune.emoji} 今日の運勢: ${fortune.result} ${fortune.emoji}`,
-          emoji: true,
-        },
-      },
-      {
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: `<@${payload.user_id}>さんの運勢\n${fortune.comment ?? ''}${rarityLine}${fridayBonus}`,
-        },
-      },
-      {
-        type: 'section',
-        fields: [
-          { type: 'mrkdwn', text: `*🎁 ラッキーアイテム*\n${luckyItem}` },
-          { type: 'mrkdwn', text: `*🎨 ラッキーカラー*\n${luckyColor}` },
-          { type: 'mrkdwn', text: `*🔢 ラッキーナンバー*\n${luckyNumber}` },
-          { type: 'mrkdwn', text: `*✅ 開運アクション*\n${luckyAction}` },
-        ],
-      },
-    ],
+    text: `今日の運勢: ${fortune.result}`,
+    blocks: revealBlocks,
   });
 };
