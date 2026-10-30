@@ -4,213 +4,85 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## プロジェクト概要
 
-uplim-kunは、Discord上で動作する勤怠管理ボットです。Discordスラッシュコマンドを通じて勤務時間・休憩時間を記録し、Google Sheetsに自動保存します。Cloudflare Workers上で動作します。
+pimu-kun は、Slack 上で動作する社内ボットです。Cloudflare Workers + Hono で動き、以下を提供します。
+
+- スラッシュコマンド: `/time`(勤怠記録 → Google Sheets)、`/omikuji`、`/nazo`、`/reminder`(D1 + cron)、`/uranai`(Workers AI)
+- LINE 公式アカウント「TRIPLATE」のメッセージを Slack に転送する Webhook(`POST /line/webhook`、設定手順は README)
 
 ## コマンド
 
 ```bash
-# TypeScriptコンパイル
-npm run build
-
-# リント・フォーマットチェック（CI用、修正なし）
-npm run ci
-
-# コード自動フォーマット
-npm run format
-
-# Discordにスラッシュコマンドを登録
-npm run register
-
-# Cloudflare Workersにデプロイ
-npm run deploy
-
-# Cloudflare型定義を生成
-npm run cf-typegen
+pnpm run build       # TypeScript 型チェック・コンパイル(service-account-key.json が必要。CI は secrets から復元)
+pnpm run ci          # Biome のリント・フォーマットチェック(修正なし)
+pnpm run format      # 自動フォーマット
+pnpm run cf-typegen  # Cloudflare 型定義を生成
 ```
+
+デプロイは main への push で GitHub Actions(`.github/workflows/deploy.yml`)が D1 マイグレーションと `wrangler deploy` を行う。
 
 ## アーキテクチャ
 
 ### 技術スタック
-- **ランタイム**: Cloudflare Workers
-- **言語**: TypeScript（strict mode）
-- **フレームワーク**: discord-hono（Hono + Discord Bot）
-- **リンター**: Biome
-- **外部連携**: Google Sheets API（Service Account認証）
+- **ランタイム**: Cloudflare Workers(D1、Workers AI、cron トリガー)
+- **言語**: TypeScript(strict mode)
+- **フレームワーク**: Hono
+- **リンター**: Biome(`console` は禁止)
+- **外部連携**: Slack Web API、Google Sheets API(Service Account 認証)、LINE Messaging API(Webhook 受信のみ)
 
-### コード構成
+### エンドポイント(`src/index.ts`)
 
-**エントリーポイント**
-- `src/index.ts` - メインアプリケーション（Botハンドラー登録）
-- `src/register.ts` - Discordコマンド登録スクリプト
+| パス | 内容 |
+|------|------|
+| `POST /slack/commands` | スラッシュコマンド。`src/commands/index.ts` の `handleCommand` で振り分け |
+| `POST /slack/interactions` | モーダル送信・ボタン押下。`src/interactions/index.ts` の `handleInteraction` で振り分け |
+| `POST /line/webhook` | LINE の Webhook。署名検証後、`waitUntil` で Slack に転送して即 200 を返す |
+| `scheduled` | 毎分の cron。期限が来たリマインダーを送信 |
 
-**コマンド実装パターン** (`src/commands/`)
-```
-commands/<command-name>/
-├── builder.ts      # コマンド定義（オプション、サブコマンド）
-├── handler.ts      # サブコマンドルーティング
-├── handlers/       # 各サブコマンドのハンドラー
-└── functions/      # ビジネスロジック（Google Sheets操作等）
-```
+Slack のリクエストは `src/slack/verify.ts`、LINE のリクエストは `src/line/verify.ts` で署名を検証する。どちらも生のボディ(`c.req.text()`)を使う。
 
-## コマンドの追加方法
-
-### 1. シンプルなコマンド（サブコマンドなし）
-
-`omikuzi`コマンドのようにサブコマンドがない場合:
+### ディレクトリ構成
 
 ```
-src/commands/<command-name>/
-├── builder.ts   # コマンド定義
-└── handler.ts   # 処理ロジック
+src/
+├── index.ts            # ルーティング
+├── commands/<name>/
+│   ├── command.ts      # スラッシュコマンドの受け口(モーダルを開く、即時応答する等)
+│   ├── interaction.ts  # モーダル送信(view_submission)の処理
+│   ├── block-actions.ts# ボタン等(block_actions)の処理
+│   ├── modal.ts        # モーダルの view 定義、callback_id / action_id 定数
+│   ├── handlers/       # サブ処理ごとの Slack 入出力
+│   └── functions/      # ビジネスロジック(Slack/Hono に依存しない)
+├── interactions/       # interaction の振り分け
+├── line/               # LINE Webhook(署名検証、Slack 転送)
+├── slack/              # Slack API クライアント、型、署名検証
+├── clients/            # Google Sheets API(fetch ベース)
+├── functions/          # 共通ユーティリティ
+└── types/result.ts     # Result 型
 ```
 
-**builder.ts** - コマンドの定義のみ
+コマンドごとに必要なファイルだけ置く(例: `omikuji` は `command.ts` のみ)。
+
+### コマンドの追加手順
+1. `src/commands/<name>/command.ts` に `(c, payload) => Promise<Response>` を実装する
+2. `src/commands/index.ts` の `switch` に `case '/<name>'` を追加する
+3. モーダルを使う場合は `interaction.ts` を作り、`src/interactions/index.ts` に `callback_id` の分岐を追加する
+4. Slack App 側(api.slack.com)でスラッシュコマンドを登録する
+
+### 実装の約束
+- `functions/` は Slack/Hono に依存させない。Hono の `Context` を受け取るのは `command.ts` / `interaction.ts` / `handlers/` まで
+- Slack の 3 秒制限を超えうる処理(AI 生成、外部 API など)は `c.executionCtx.waitUntil(...)` で裏に回す
+- `waitUntil` 内の失敗を記録したいときは `throw` する(Workers の observability に例外として残る)
+- エラーは Result 型で返す
+
 ```typescript
-import { Command } from 'discord-hono';
-export const myCommandBuilder = new Command('mycommand', 'コマンドの説明');
+type Result<T> = { success: true; data: T } | { success: false; message: string };
 ```
 
-**handler.ts** - 処理ロジック
-```typescript
-import type { CommandContext } from 'discord-hono';
-
-type Options = { context: CommandContext };
-
-export const myCommandHandler = async ({ context }: Options) => {
-  return context.res('レスポンス');
-};
-```
-
-### 2. サブコマンドを持つコマンド
-
-`time`コマンドのように複数のサブコマンドがある場合:
-
-```
-src/commands/<command-name>/
-├── builder.ts      # コマンド・サブコマンド定義
-├── handler.ts      # サブコマンドのルーティング
-├── handlers/       # 各サブコマンドのハンドラー
-│   └── xxx-handler.ts
-└── functions/      # ビジネスロジック（外部API操作等）
-    └── xxx.ts
-```
-
-**builder.ts** - サブコマンドとオプションを定義
-```typescript
-import { Command, Option, SubCommand } from 'discord-hono';
-
-export const myCommandBuilder = new Command('mycommand', 'コマンドの説明').options(
-  new SubCommand('action1', 'アクション1の説明').options(
-    new Option('param', 'パラメータの説明').required()
-  ),
-  new SubCommand('action2', 'アクション2の説明')
-);
-```
-
-**handler.ts** - サブコマンドをルーティングするだけ（ロジックは書かない）
-```typescript
-import type { CommandContext } from 'discord-hono';
-import { action1Handler } from './handlers/action1-handler';
-import { action2Handler } from './handlers/action2-handler';
-
-type Options = { context: CommandContext };
-
-export const myCommandHandler = async ({ context }: Options) => {
-  switch (context.sub.string) {
-    case 'action1':
-      return await action1Handler({ context });
-    case 'action2':
-      return await action2Handler({ context });
-    default:
-      return await action1Handler({ context });
-  }
-};
-```
-
-**handlers/xxx-handler.ts** - Discordの入出力を担当
-```typescript
-import type { CommandContext } from 'discord-hono';
-import { myFunction } from '../functions/my-function';
-
-type Option = { context: CommandContext };
-
-export const action1Handler = async ({ context }: Option) => {
-  const param = context.var.param;  // オプション値の取得
-
-  const result = await myFunction({ param, env: context.env });
-
-  if (!result.success) {
-    return context.res(result.message);
-  }
-  return context.res(`成功: ${result.data}`);
-};
-```
-
-**functions/xxx.ts** - ビジネスロジック（Discordに依存しない）
-```typescript
-import type { Result } from '../../types/result';
-
-type Options = { param: string; env: Env };
-
-export const myFunction = async ({ param, env }: Options): Promise<Result<string>> => {
-  // Google Sheets操作などのビジネスロジック
-  return { success: true, data: '処理結果' };
-};
-```
-
-### 3. コマンドの登録
-
-**src/commands/index.ts** にbuilderとhandlerを追加:
-```typescript
-import { myCommandBuilder } from './mycommand/builder';
-import { myCommandHandler } from './mycommand/handler';
-
-export const commands = [timeBuilder, omikuziBuilder, myCommandBuilder];
-export const handlers = {
-  time: timeHandler,
-  omikuzi: omikuziHandler,
-  mycommand: myCommandHandler,
-};
-```
-
-**src/index.ts** にルーティングを追加:
-```typescript
-const app = new DiscordHono()
-  .command('mycommand', (context) => handlers.mycommand({ context }));
-```
-
-### 4. Discordへの登録
-
-コマンド定義を変更したら、Discordに再登録が必要:
-```bash
-npm run build && npm run register
-```
-
-### ファイルの責務まとめ
-
-| ファイル | 責務 | Discordへの依存 |
-|---------|------|----------------|
-| builder.ts | コマンド構造の定義（名前、説明、オプション） | あり |
-| handler.ts | サブコマンドのルーティングのみ | あり |
-| handlers/*.ts | 入出力の変換、レスポンス生成 | あり |
-| functions/*.ts | ビジネスロジック、外部API操作 | **なし** |
-
-`functions/`はDiscordに依存しないため、単体テストがしやすい設計になっている。
-
-**Google Sheets API** (`src/clients/`)
-- fetchベースの実装（googleapis SDKはNode.js依存のため使用不可）
-- `cloudflare-workers-and-google-oauth`でService Account認証
-
-### エラーハンドリング
-
-Result型パターンを使用:
-```typescript
-type Result<T> =
-  | { success: true; data: T }
-  | { success: false; message: string };
-```
+### 設定値とシークレット
+- 公開してよい設定は `wrangler.toml` の `[vars]`、シークレットは `wrangler secret put` で入れる(`keep_vars = true`)
+- Env を増やしたら `worker-configuration.d.ts` にも型を追加する
+- ローカル開発用のシークレットは `.dev.vars`(git 管理外)
 
 ### 注意点
-- Cloudflare Workers環境のため、Node.js依存のライブラリは使用不可
-- タイムゾーンは`Asia/Tokyo`固定（JST）
-- `console`の使用はBiomeで禁止されている
+- Cloudflare Workers 環境のため、Node.js 依存のライブラリは使用不可(googleapis SDK も不可)
+- タイムゾーンは `Asia/Tokyo` 固定(JST)

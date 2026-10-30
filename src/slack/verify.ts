@@ -1,19 +1,7 @@
 import type { Context } from 'hono';
+import { timingSafeEqual } from '../functions/timing-safe-equal';
 
 const encoder = new TextEncoder();
-
-const timingSafeEqual = (a: ArrayBuffer, b: ArrayBuffer): boolean => {
-  if (a.byteLength !== b.byteLength) {
-    return false;
-  }
-  const aView = new Uint8Array(a);
-  const bView = new Uint8Array(b);
-  let result = 0;
-  for (let i = 0; i < aView.length; i++) {
-    result |= (aView[i] ?? 0) ^ (bView[i] ?? 0);
-  }
-  return result === 0;
-};
 
 export const verifySlackRequest = async (c: Context<{ Bindings: Env }>, rawBody: string): Promise<boolean> => {
   const signature = c.req.header('X-Slack-Signature');

@@ -4,6 +4,8 @@ interface Env {
   SLACK_BOT_TOKEN: string;
   SLACK_SIGNING_SECRET: string;
   TIMER_SPREADSHEET_ID: string;
+  LINE_CHANNEL_SECRET: string;
+  LINE_NOTIFY_SLACK_CHANNEL_ID: string;
   DB: D1Database;
   AI: Ai;
 }

@@ -4,6 +4,9 @@ compatibility_date = "2025-03-11"
 compatibility_flags = ["nodejs_compat"]
 keep_vars = true
 
+[vars]
+LINE_NOTIFY_SLACK_CHANNEL_ID = "C0CEB3LKEF2"
+
 [observability]
 enabled = true
 

@@ -2,6 +2,9 @@ import { Hono } from 'hono';
 import { handleCommand } from './commands';
 import { runDueReminders } from './commands/remind/functions/run-due-reminders';
 import { handleInteraction } from './interactions';
+import { forwardLineEventsToSlack } from './line/forward-to-slack';
+import type { LineWebhookBody } from './line/types';
+import { verifyLineSignature } from './line/verify';
 import type { InteractionPayload, SlashCommandPayload } from './slack/types';
 import { verifySlackRequest } from './slack/verify';
 
@@ -47,6 +50,30 @@ app.post('/slack/interactions', async (c) => {
 
   const payload = JSON.parse(payloadStr) as InteractionPayload;
   return await handleInteraction(c, payload);
+});
+
+// LINE公式アカウント(TRIPLATE)の Webhook 受信 → Slack に転送
+app.post('/line/webhook', async (c) => {
+  const rawBody = await c.req.text();
+  if (!(await verifyLineSignature(c.env.LINE_CHANNEL_SECRET, rawBody, c.req.header('X-Line-Signature')))) {
+    return c.text('Invalid signature', 401);
+  }
+
+  // LINE Developers の「検証」は events が空で届く
+  const payload = JSON.parse(rawBody) as LineWebhookBody;
+  if (payload.events.length === 0) {
+    return c.text('OK');
+  }
+
+  // LINE には即座に 200 を返し、Slack への投稿は裏で行う。失敗は throw して observability に残す
+  c.executionCtx.waitUntil(
+    forwardLineEventsToSlack({ events: payload.events, env: c.env }).then((result) => {
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+    })
+  );
+  return c.text('OK');
 });
 
 export default {
